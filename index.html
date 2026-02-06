@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Processor Simulator Platform</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Mono:wght@400;700&display=swap');
+    
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      margin: 0;
+      padding: 0;
+    }
+
+    @keyframes scan {
+      0% { transform: translateY(-100vh); }
+      100% { transform: translateY(100vh); }
+    }
+    
+    .animate-scan {
+      animation: scan 4s linear infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+
+    .animate-float {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 136, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(0, 255, 136, 0.6); }
+    }
+
+    .animate-glow {
+      animation: glow 2s ease-in-out infinite;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    input[type="range"]::-webkit-slider-track {
+      background: #1a2347;
+      height: 0.5rem;
+      border-radius: 0.25rem;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #00ff88;
+      height: 1rem;
+      width: 1rem;
+      border-radius: 50%;
+      margin-top: -0.25rem;
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    }
+
+    input[type="range"]::-moz-range-track {
+      background: #1a2347;
+      height: 0.5rem;
+      border-radius: 0.25rem;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      background: #00ff88;
+      height: 1rem;
+      width: 1rem;
+      border-radius: 50%;
+      border: none;
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    }
+
+    textarea::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    textarea::-webkit-scrollbar-track {
+      background: #0a0e27;
+    }
+
+    textarea::-webkit-scrollbar-thumb {
+      background: #00ff88;
+      border-radius: 4px;
+    }
+
+    textarea::-webkit-scrollbar-thumb:hover {
+      background: #00dd77;
+    }
+
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+
+    .card-hover:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 20px 40px rgba(0, 255, 136, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Icons
+    const Play = () => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+    );
+
+    const Pause = () => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="6" y="4" width="4" height="16"></rect>
+        <rect x="14" y="4" width="4" height="16"></rect>
+      </svg>
+    );
+
+    const SkipForward = () => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="5 4 15 12 5 20 5 4"></polygon>
+        <line x1="19" y1="5" x2="19" y2="19"></line>
+      </svg>
+    );
+
+    const RotateCcw = () => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="1 4 1 10 7 10"></polyline>
+        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+      </svg>
+    );
+
+    const Cpu = ({size = 28}) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+        <rect x="9" y="9" width="6" height="6"></rect>
+        <line x1="9" y1="1" x2="9" y2="4"></line>
+        <line x1="15" y1="1" x2="15" y2="4"></line>
+        <line x1="9" y1="20" x2="9" y2="23"></line>
+        <line x1="15" y1="20" x2="15" y2="23"></line>
+        <line x1="20" y1="9" x2="23" y2="9"></line>
+        <line x1="20" y1="14" x2="23" y2="14"></line>
+        <line x1="1" y1="9" x2="4" y2="9"></line>
+        <line x1="1" y1="14" x2="4" y2="14"></line>
+      </svg>
+    );
+
+    const Code = () => (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="16 18 22 12 16 6"></polyline>
+        <polyline points="8 6 2 12 8 18"></polyline>
+      </svg>
+    );
+
+    const Terminal = () => (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="4 17 10 11 4 5"></polyline>
+        <line x1="12" y1="19" x2="20" y2="19"></line>
+      </svg>
+    );
+
+    const Zap = () => (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+    );
+
+    const PlusCircle = () => (
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="16"></line>
+        <line x1="8" y1="12" x2="16" y2="12"></line>
+      </svg>
+    );
+
+    const ArrowLeft = () => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+    );
+
+    // Demo processor
+    const DEMO_PROCESSOR = {
+      id: 'demo-4bit',
+      name: 'DEMO-4 (4-bit Educational Processor)',
+      description: 'Simple 4-bit processor with 4 registers and basic operations',
+      registers: ['R0', 'R1', 'R2', 'R3'],
+      memory: { size: 256, wordSize: 8 },
+      compile: (code) => {
+        return [
+          { addr: '0x00', instruction: 'MOV R0, #5', binary: '00010101' },
+          { addr: '0x01', instruction: 'MOV R1, #3', binary: '00100011' },
+          { addr: '0x02', instruction: 'ADD R2, R0, R1', binary: '01000001' },
+          { addr: '0x03', instruction: 'HALT', binary: '11111111' }
+        ];
+      },
+      execute: (instruction, state) => ({ ...state })
+    };
+
+    // ARM-like Processor (Simplified ARMv7)
+    const ARM_PROCESSOR = {
+      id: 'arm-simplified',
+      name: 'ARM-based Architecture (Simplified)',
+      description: 'Simplified ARM processor with 8 general-purpose registers and basic ARM instruction set',
+      registers: ['R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'PC', 'SP', 'LR', 'CPSR'],
+      memory: { size: 1024, wordSize: 32 },
+      compile: (code) => {
+        const assembly = [];
+        
+        // Simple pattern matching for basic C constructs
+        const lines = code.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+        
+        let regCounter = 0;
+        const varMap = {};
+        
+        for (const line of lines) {
+          // Match: int var = number;
+          const varMatch = line.match(/int\s+(\w+)\s*=\s*(\d+)/);
+          if (varMatch) {
+            const varName = varMatch[1];
+            const value = varMatch[2];
+            varMap[varName] = `R${regCounter}`;
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[varName]}, #${value}`,
+              binary: `1110001110100000${regCounter.toString(2).padStart(4, '0')}${parseInt(value).toString(2).padStart(12, '0')}`
+            });
+            regCounter++;
+          }
+          
+          // Match: result = a + b;
+          const addMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\+\s*(\w+)/);
+          if (addMatch) {
+            const dest = addMatch[1];
+            const op1 = addMatch[2];
+            const op2 = addMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `ADD ${varMap[dest]}, ${varMap[op1]}, ${varMap[op2]}`,
+              binary: `11100000100${varMap[op1].substring(1).padStart(4, '0')}${varMap[dest].substring(1).padStart(4, '0')}0000${varMap[op2].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: result = a * b;
+          const mulMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\*\s*(\w+)/);
+          if (mulMatch) {
+            const dest = mulMatch[1];
+            const op1 = mulMatch[2];
+            const op2 = mulMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `MUL ${varMap[dest]}, ${varMap[op1]}, ${varMap[op2]}`,
+              binary: `11100000000${varMap[dest].substring(1).padStart(4, '0')}0000${varMap[op2].substring(1).padStart(4, '0')}1001${varMap[op1].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: result = a - b;
+          const subMatch = line.match(/(\w+)\s*=\s*(\w+)\s*-\s*(\w+)/);
+          if (subMatch) {
+            const dest = subMatch[1];
+            const op1 = subMatch[2];
+            const op2 = subMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `SUB ${varMap[dest]}, ${varMap[op1]}, ${varMap[op2]}`,
+              binary: `11100000010${varMap[op1].substring(1).padStart(4, '0')}${varMap[dest].substring(1).padStart(4, '0')}0000${varMap[op2].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: result = a & b; (bitwise AND)
+          const andMatch = line.match(/(\w+)\s*=\s*(\w+)\s*&\s*(\w+)/);
+          if (andMatch) {
+            const dest = andMatch[1];
+            const op1 = andMatch[2];
+            const op2 = andMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `AND ${varMap[dest]}, ${varMap[op1]}, ${varMap[op2]}`,
+              binary: `11100000000${varMap[op1].substring(1).padStart(4, '0')}${varMap[dest].substring(1).padStart(4, '0')}0000${varMap[op2].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: result = a | b; (bitwise OR)
+          const orMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\|\s*(\w+)/);
+          if (orMatch) {
+            const dest = orMatch[1];
+            const op1 = orMatch[2];
+            const op2 = orMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `ORR ${varMap[dest]}, ${varMap[op1]}, ${varMap[op2]}`,
+              binary: `11100001100${varMap[op1].substring(1).padStart(4, '0')}${varMap[dest].substring(1).padStart(4, '0')}0000${varMap[op2].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: result = a ^ b; (bitwise XOR)
+          const xorMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\^\s*(\w+)/);
+          if (xorMatch) {
+            const dest = xorMatch[1];
+            const op1 = xorMatch[2];
+            const op2 = xorMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `EOR ${varMap[dest]}, ${varMap[op1]}, ${varMap[op2]}`,
+              binary: `11100000001${varMap[op1].substring(1).padStart(4, '0')}${varMap[dest].substring(1).padStart(4, '0')}0000${varMap[op2].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: result = a << n; (left shift)
+          const lslMatch = line.match(/(\w+)\s*=\s*(\w+)\s*<<\s*(\d+)/);
+          if (lslMatch) {
+            const dest = lslMatch[1];
+            const op1 = lslMatch[2];
+            const shift = lslMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `LSL ${varMap[dest]}, ${varMap[op1]}, #${shift}`,
+              binary: `11100001101000000000${parseInt(shift).toString(2).padStart(5, '0')}000${varMap[op1].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: result = a >> n; (right shift)
+          const lsrMatch = line.match(/(\w+)\s*=\s*(\w+)\s*>>\s*(\d+)/);
+          if (lsrMatch) {
+            const dest = lsrMatch[1];
+            const op1 = lsrMatch[2];
+            const shift = lsrMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `LSR ${varMap[dest]}, ${varMap[op1]}, #${shift}`,
+              binary: `11100001101000000000${parseInt(shift).toString(2).padStart(5, '0')}010${varMap[op1].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: result = a / b; (division)
+          const divMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\/\s*(\w+)/);
+          if (divMatch) {
+            const dest = divMatch[1];
+            const op1 = divMatch[2];
+            const op2 = divMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = `R${regCounter}`;
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `SDIV ${varMap[dest]}, ${varMap[op1]}, ${varMap[op2]}`,
+              binary: `11110111000${varMap[op1].substring(1).padStart(4, '0')}1111${varMap[dest].substring(1).padStart(4, '0')}1111${varMap[op2].substring(1).padStart(4, '0')}`
+            });
+          }
+          
+          // Match: return var;
+          const retMatch = line.match(/return\s+(\w+)/);
+          if (retMatch) {
+            const retVar = retMatch[1];
+            assembly.push({
+              addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+              instruction: `MOV R0, ${varMap[retVar]}`,
+              binary: `111000011010000000000000${varMap[retVar].substring(1).padStart(4, '0')}`
+            });
+          }
+        }
+        
+        // Add BX LR (return)
+        assembly.push({
+          addr: `0x${(assembly.length * 4).toString(16).padStart(4, '0')}`,
+          instruction: 'BX LR',
+          binary: '11100001001011111111111100011110'
+        });
+        
+        return assembly;
+      },
+      execute: (instruction, state) => ({ ...state })
+    };
+
+    // x86-like Processor (Simplified x86-64)
+    const X86_PROCESSOR = {
+      id: 'x86-simplified',
+      name: 'x86 Architecture (Simplified)',
+      description: 'Simplified x86 processor with general-purpose registers and classic x86 instruction set',
+      registers: ['RAX', 'RBX', 'RCX', 'RDX', 'RSI', 'RDI', 'RBP', 'RSP', 'RIP'],
+      memory: { size: 2048, wordSize: 64 },
+      compile: (code) => {
+        const assembly = [];
+        
+        const lines = code.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+        
+        const varMap = {};
+        const registers = ['RAX', 'RBX', 'RCX', 'RDX'];
+        let regCounter = 0;
+        
+        for (const line of lines) {
+          // Match: int var = number;
+          const varMatch = line.match(/int\s+(\w+)\s*=\s*(\d+)/);
+          if (varMatch) {
+            const varName = varMatch[1];
+            const value = varMatch[2];
+            varMap[varName] = registers[regCounter % registers.length];
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[varName]}, ${value}`,
+              binary: `48C7C0${parseInt(value).toString(16).padStart(8, '0')}`
+            });
+            regCounter++;
+          }
+          
+          // Match: result = a + b;
+          const addMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\+\s*(\w+)/);
+          if (addMatch) {
+            const dest = addMatch[1];
+            const op1 = addMatch[2];
+            const op2 = addMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            // MOV dest, op1
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            // ADD dest, op2
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `ADD ${varMap[dest]}, ${varMap[op2]}`,
+              binary: '4801C0'
+            });
+          }
+          
+          // Match: result = a * b;
+          const mulMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\*\s*(\w+)/);
+          if (mulMatch) {
+            const dest = mulMatch[1];
+            const op1 = mulMatch[2];
+            const op2 = mulMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            // MOV dest, op1
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            // IMUL dest, op2
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `IMUL ${varMap[dest]}, ${varMap[op2]}`,
+              binary: '480FAFC0'
+            });
+          }
+          
+          // Match: result = a - b;
+          const subMatch = line.match(/(\w+)\s*=\s*(\w+)\s*-\s*(\w+)/);
+          if (subMatch) {
+            const dest = subMatch[1];
+            const op1 = subMatch[2];
+            const op2 = subMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            // MOV dest, op1
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            // SUB dest, op2
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `SUB ${varMap[dest]}, ${varMap[op2]}`,
+              binary: '4829C0'
+            });
+          }
+          
+          // Match: result = a & b; (bitwise AND)
+          const andMatch = line.match(/(\w+)\s*=\s*(\w+)\s*&\s*(\w+)/);
+          if (andMatch) {
+            const dest = andMatch[1];
+            const op1 = andMatch[2];
+            const op2 = andMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `AND ${varMap[dest]}, ${varMap[op2]}`,
+              binary: '4821C0'
+            });
+          }
+          
+          // Match: result = a | b; (bitwise OR)
+          const orMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\|\s*(\w+)/);
+          if (orMatch) {
+            const dest = orMatch[1];
+            const op1 = orMatch[2];
+            const op2 = orMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `OR ${varMap[dest]}, ${varMap[op2]}`,
+              binary: '4809C0'
+            });
+          }
+          
+          // Match: result = a ^ b; (bitwise XOR)
+          const xorMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\^\s*(\w+)/);
+          if (xorMatch) {
+            const dest = xorMatch[1];
+            const op1 = xorMatch[2];
+            const op2 = xorMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `XOR ${varMap[dest]}, ${varMap[op2]}`,
+              binary: '4831C0'
+            });
+          }
+          
+          // Match: result = a << n; (left shift)
+          const shlMatch = line.match(/(\w+)\s*=\s*(\w+)\s*<<\s*(\d+)/);
+          if (shlMatch) {
+            const dest = shlMatch[1];
+            const op1 = shlMatch[2];
+            const shift = shlMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `SHL ${varMap[dest]}, ${shift}`,
+              binary: `48C1E0${parseInt(shift).toString(16).padStart(2, '0')}`
+            });
+          }
+          
+          // Match: result = a >> n; (right shift)
+          const shrMatch = line.match(/(\w+)\s*=\s*(\w+)\s*>>\s*(\d+)/);
+          if (shrMatch) {
+            const dest = shrMatch[1];
+            const op1 = shrMatch[2];
+            const shift = shrMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `SHR ${varMap[dest]}, ${shift}`,
+              binary: `48C1E8${parseInt(shift).toString(16).padStart(2, '0')}`
+            });
+          }
+          
+          // Match: result = a / b; (division)
+          const divMatch = line.match(/(\w+)\s*=\s*(\w+)\s*\/\s*(\w+)/);
+          if (divMatch) {
+            const dest = divMatch[1];
+            const op1 = divMatch[2];
+            const op2 = divMatch[3];
+            
+            if (!varMap[dest]) {
+              varMap[dest] = registers[regCounter % registers.length];
+              regCounter++;
+            }
+            
+            // Move dividend to RAX
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV RAX, ${varMap[op1]}`,
+              binary: '4889C0'
+            });
+            
+            // Sign extend RAX to RDX:RAX
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `CQO`,
+              binary: '4899'
+            });
+            
+            // Divide by op2
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `IDIV ${varMap[op2]}`,
+              binary: '48F7F8'
+            });
+            
+            // Move quotient to dest
+            assembly.push({
+              addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+              instruction: `MOV ${varMap[dest]}, RAX`,
+              binary: '4889C0'
+            });
+          }
+          
+          // Match: return var;
+          const retMatch = line.match(/return\s+(\w+)/);
+          if (retMatch) {
+            const retVar = retMatch[1];
+            if (varMap[retVar] !== 'RAX') {
+              assembly.push({
+                addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+                instruction: `MOV RAX, ${varMap[retVar]}`,
+                binary: '4889C0'
+              });
+            }
+          }
+        }
+        
+        // Add RET
+        assembly.push({
+          addr: `0x${(assembly.length).toString(16).padStart(4, '0')}`,
+          instruction: 'RET',
+          binary: 'C3'
+        });
+        
+        return assembly;
+      },
+      execute: (instruction, state) => ({ ...state })
+    };
+
+    const PROCESSORS = [DEMO_PROCESSOR, ARM_PROCESSOR, X86_PROCESSOR];
+
+    // Landing Page Component
+    function LandingPage({ onNavigate }) {
+      return (
+        <div className="min-h-screen bg-[#0a0e27] text-[#e0e0e0] overflow-hidden">
+          {/* Background Effects */}
+          <div className="fixed inset-0 opacity-5 pointer-events-none">
+            <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="circuit" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <path d="M10 10h20v20h-20z M50 10h20v20h-20z M30 50h20v20h-20z M70 70h20v20h-20z" 
+                        stroke="#00ff88" strokeWidth="0.5" fill="none"/>
+                  <circle cx="20" cy="20" r="2" fill="#00ff88"/>
+                  <circle cx="60" cy="20" r="2" fill="#00ff88"/>
+                  <circle cx="40" cy="60" r="2" fill="#00ff88"/>
+                  <circle cx="80" cy="80" r="2" fill="#00ff88"/>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#circuit)"/>
+            </svg>
+          </div>
+
+          <div className="fixed inset-0 pointer-events-none opacity-10">
+            <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#00ff88] to-transparent animate-scan"/>
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
+            {/* Logo/Icon */}
+            <div className="mb-8 animate-float">
+              <div className="w-32 h-32 bg-gradient-to-br from-[#00ff88] to-[#00ccff] rounded-2xl flex items-center justify-center animate-glow">
+                <Cpu size={64} />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-6xl md:text-7xl font-bold tracking-wider text-[#00ff88] mb-4 text-center" 
+                style={{textShadow: '0 0 30px rgba(0,255,136,0.6)', fontFamily: "'Space Mono', monospace"}}>
+              PROCESSOR SIMULATOR
+            </h1>
+            
+            <p className="text-xl text-[#00ccff] tracking-widest mb-6 text-center">
+              HARDWARE VISUALIZATION PLATFORM
+            </p>
+
+            {/* Description */}
+            <div className="max-w-3xl mb-12 text-center">
+              <p className="text-lg text-[#b0b0b0] leading-relaxed mb-4">
+                Visualize how processors execute code at the hardware level. Watch registers update in real-time, 
+                track instruction execution, and understand computer architecture from the ground up.
+              </p>
+              <p className="text-md text-[#888] italic">
+                Perfect for students learning computer organization, hardware enthusiasts building custom processors, 
+                or anyone curious about what happens inside your CPU.
+              </p>
+            </div>
+
+            {/* Action Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
+              {/* Card 1: Run on Existing Processors */}
+              <div 
+                onClick={() => onNavigate('simulator')}
+                className="card-hover bg-[#151b3d]/70 border-2 border-[#00ff88]/40 rounded-xl p-8 cursor-pointer backdrop-blur-sm"
+              >
+                <div className="flex justify-center mb-6">
+                  <div className="w-20 h-20 bg-[#00ff88]/20 rounded-lg flex items-center justify-center border border-[#00ff88]/50">
+                    <Cpu size={40} />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold text-[#00ff88] mb-4 text-center tracking-wide">
+                  RUN CODE ON EXISTING PROCESSORS
+                </h2>
+                <p className="text-[#b0b0b0] text-center mb-6">
+                  Execute C/C++ code on pre-built processor models. See step-by-step execution, 
+                  register updates, and memory operations in real-time.
+                </p>
+                <div className="flex justify-center">
+                  <button className="bg-[#00ff88] hover:bg-[#00dd77] text-[#0a0e27] px-6 py-3 rounded-lg font-bold text-sm tracking-wider transition-all flex items-center gap-2"
+                          style={{boxShadow: '0 0 20px rgba(0,255,136,0.4)'}}>
+                    <Play />
+                    START SIMULATOR
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Add Your Own Processor */}
+              <div 
+                onClick={() => onNavigate('add-processor')}
+                className="card-hover bg-[#151b3d]/70 border-2 border-[#00ccff]/40 rounded-xl p-8 cursor-pointer backdrop-blur-sm"
+              >
+                <div className="flex justify-center mb-6">
+                  <div className="w-20 h-20 bg-[#00ccff]/20 rounded-lg flex items-center justify-center border border-[#00ccff]/50">
+                    <PlusCircle />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold text-[#00ccff] mb-4 text-center tracking-wide">
+                  ADD YOUR OWN PROCESSOR
+                </h2>
+                <p className="text-[#b0b0b0] text-center mb-6">
+                  Built a custom processor? Add your design as a plugin and visualize how your 
+                  architecture executes code. Perfect for course projects.
+                </p>
+                <div className="flex justify-center">
+                  <button className="bg-[#00ccff] hover:bg-[#00aadd] text-[#0a0e27] px-6 py-3 rounded-lg font-bold text-sm tracking-wider transition-all flex items-center gap-2"
+                          style={{boxShadow: '0 0 20px rgba(0,204,255,0.4)'}}>
+                    <PlusCircle />
+                    ADD PROCESSOR
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Features List */}
+            <div className="mt-16 max-w-4xl w-full">
+              <h3 className="text-sm text-[#00ccff] tracking-widest text-center mb-6">PLATFORM FEATURES</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <div className="text-[#00ff88] text-3xl mb-2">⚡</div>
+                  <div className="text-sm text-[#b0b0b0]">Step-by-step execution with adjustable speed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[#00ff88] text-3xl mb-2">🔍</div>
+                  <div className="text-sm text-[#b0b0b0]">Real-time register and memory visualization</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[#00ff88] text-3xl mb-2">🔌</div>
+                  <div className="text-sm text-[#b0b0b0]">Extensible plugin architecture for custom processors</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer / Copyright */}
+            <div className="mt-20 pb-8 text-center">
+              <div className="inline-block">
+                <div className="h-px w-64 bg-gradient-to-r from-transparent via-[#00ff88]/30 to-transparent mb-4"/>
+                <p className="text-sm text-[#888] tracking-wide">
+                  Built with <span className="text-[#00ff88]">❤</span> for Computer Architecture enthusiasts
+                </p>
+                <p className="text-xs text-[#666] mt-2 tracking-wider">
+                  © 2026 Bhavesh Karimi. All rights reserved.
+                </p>
+                <p className="text-xs text-[#555] mt-1 italic">
+                  Processor Simulator Platform v1.0
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Add Processor Page Component
+    function AddProcessorPage({ onNavigate }) {
+      const [processorCode, setProcessorCode] = useState(`// Example processor plugin structure
+const MY_PROCESSOR = {
+  id: 'my-processor',
+  name: 'My Custom Processor',
+  description: 'Your processor description',
+  
+  registers: ['R0', 'R1', 'R2', 'R3'],
+  
+  memory: {
+    size: 256,
+    wordSize: 8
+  },
+  
+  compile: (code) => {
+    // Your compilation logic
+    return [];
+  },
+  
+  execute: (instruction, state) => {
+    // Your execution logic
+    return state;
+  }
+};`);
+
+      return (
+        <div className="min-h-screen bg-[#0a0e27] text-[#e0e0e0]">
+          {/* Background */}
+          <div className="fixed inset-0 opacity-5 pointer-events-none">
+            <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="circuit" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <path d="M10 10h20v20h-20z M50 10h20v20h-20z M30 50h20v20h-20z M70 70h20v20h-20z" 
+                        stroke="#00ff88" strokeWidth="0.5" fill="none"/>
+                  <circle cx="20" cy="20" r="2" fill="#00ff88"/>
+                  <circle cx="60" cy="20" r="2" fill="#00ff88"/>
+                  <circle cx="40" cy="60" r="2" fill="#00ff88"/>
+                  <circle cx="80" cy="80" r="2" fill="#00ff88"/>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#circuit)"/>
+            </svg>
+          </div>
+
+          <div className="relative z-10 p-6">
+            {/* Header */}
+            <div className="mb-8">
+              <button 
+                onClick={() => onNavigate('home')}
+                className="flex items-center gap-2 text-[#00ff88] hover:text-[#00dd77] transition-all mb-4"
+              >
+                <ArrowLeft />
+                <span className="text-sm tracking-wider">BACK TO HOME</span>
+              </button>
+              
+              <h1 className="text-4xl font-bold text-[#00ff88] mb-2" style={{textShadow: '0 0 20px rgba(0,255,136,0.5)'}}>
+                ADD YOUR PROCESSOR
+              </h1>
+              <p className="text-[#00ccff] text-sm tracking-wide">
+                Create a plugin for your custom processor design
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl">
+              {/* Instructions */}
+              <div className="space-y-6">
+                <div className="bg-[#151b3d]/50 border border-[#00ccff]/30 rounded-lg p-6 backdrop-blur-sm">
+                  <h2 className="text-xl font-bold text-[#00ccff] mb-4 tracking-wide">HOW TO ADD YOUR PROCESSOR</h2>
+                  
+                  <div className="space-y-4 text-sm text-[#b0b0b0]">
+                    <div className="flex gap-3">
+                      <div className="text-[#00ff88] font-bold">1.</div>
+                      <div>
+                        <strong className="text-[#e0e0e0]">Define your processor metadata:</strong>
+                        <br/>Set the ID, name, description, registers, and memory configuration.
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <div className="text-[#00ff88] font-bold">2.</div>
+                      <div>
+                        <strong className="text-[#e0e0e0]">Implement the compile function:</strong>
+                        <br/>Convert C/C++ code to your processor's assembly language. Return an array of instruction objects.
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <div className="text-[#00ff88] font-bold">3.</div>
+                      <div>
+                        <strong className="text-[#e0e0e0]">Implement the execute function:</strong>
+                        <br/>Simulate how each instruction modifies the processor state (registers, memory, PC).
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <div className="text-[#00ff88] font-bold">4.</div>
+                      <div>
+                        <strong className="text-[#e0e0e0]">Add to the HTML file:</strong>
+                        <br/>Open processor-simulator.html in a text editor, paste your code after DEMO_PROCESSOR, and add it to the PROCESSORS array.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg p-6 backdrop-blur-sm">
+                  <h3 className="text-lg font-bold text-[#00ff88] mb-3 tracking-wide">INSTRUCTION OBJECT FORMAT</h3>
+                  <pre className="bg-[#0a0e27] p-4 rounded text-xs text-[#00ccff] overflow-x-auto">
+{`{
+  addr: '0x00',              // Memory address
+  instruction: 'MOV R0, #5', // Assembly code
+  binary: '00010101'         // Binary encoding
+}`}
+                  </pre>
+                </div>
+
+                <div className="bg-[#151b3d]/50 border border-[#ff6b00]/30 rounded-lg p-6 backdrop-blur-sm">
+                  <h3 className="text-lg font-bold text-[#ff6b00] mb-3 tracking-wide">⚠️ IMPORTANT NOTES</h3>
+                  <ul className="space-y-2 text-sm text-[#b0b0b0] list-disc list-inside">
+                    <li>Each processor must have a unique ID</li>
+                    <li>The compile function must return an array of instruction objects</li>
+                    <li>The execute function must return the updated state object</li>
+                    <li>Test your processor logic before adding it to the platform</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Code Editor */}
+              <div className="bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg overflow-hidden backdrop-blur-sm">
+                <div className="bg-[#1a2347] px-4 py-3 border-b border-[#00ff88]/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Code />
+                    <span className="text-xs text-[#00ccff] tracking-widest">PROCESSOR PLUGIN TEMPLATE</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(processorCode);
+                      alert('Code copied to clipboard!');
+                    }}
+                    className="text-xs bg-[#00ff88]/20 hover:bg-[#00ff88]/30 text-[#00ff88] px-3 py-1 rounded border border-[#00ff88]/50 transition-all"
+                  >
+                    COPY CODE
+                  </button>
+                </div>
+                <textarea
+                  value={processorCode}
+                  onChange={(e) => setProcessorCode(e.target.value)}
+                  className="w-full h-[600px] bg-[#0a0e27] p-4 text-sm text-[#e0e0e0] font-mono focus:outline-none resize-none"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+
+            {/* Next Steps */}
+            <div className="mt-8 max-w-7xl">
+              <div className="bg-gradient-to-r from-[#00ff88]/10 to-[#00ccff]/10 border border-[#00ff88]/30 rounded-lg p-6">
+                <h3 className="text-lg font-bold text-[#00ff88] mb-3 tracking-wide">NEXT STEPS</h3>
+                <ol className="space-y-2 text-sm text-[#b0b0b0] list-decimal list-inside">
+                  <li>Copy the template code above and customize it for your processor</li>
+                  <li>Open <code className="text-[#00ccff] bg-[#0a0e27] px-2 py-1 rounded">processor-simulator.html</code> in a text editor</li>
+                  <li>Find the line <code className="text-[#00ccff] bg-[#0a0e27] px-2 py-1 rounded">const PROCESSORS = [DEMO_PROCESSOR];</code></li>
+                  <li>Paste your processor code before that line</li>
+                  <li>Update the array to <code className="text-[#00ccff] bg-[#0a0e27] px-2 py-1 rounded">const PROCESSORS = [DEMO_PROCESSOR, MY_PROCESSOR];</code></li>
+                  <li>Save the file and refresh in your browser - your processor will appear in the dropdown!</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Simulator Component (same as before)
+    function SimulatorPage({ onNavigate }) {
+      const [selectedProcessor, setSelectedProcessor] = useState(DEMO_PROCESSOR);
+      const [code, setCode] = useState('int main() {\n  int a = 5;\n  int b = 3;\n  int c = a + b;\n  return c;\n}');
+      const [compiled, setCompiled] = useState([]);
+      const [isRunning, setIsRunning] = useState(false);
+      const [currentStep, setCurrentStep] = useState(0);
+      const [speed, setSpeed] = useState(500);
+      
+      // Initialize registers based on selected processor
+      const getInitialRegisters = (processor) => {
+        const regs = {};
+        processor.registers.forEach(reg => {
+          regs[reg] = 0;
+        });
+        return regs;
+      };
+      
+      const [registers, setRegisters] = useState(getInitialRegisters(DEMO_PROCESSOR));
+      const [memory, setMemory] = useState(Array(16).fill(0));
+      const [output, setOutput] = useState('');
+
+      // Update registers when processor changes
+      useEffect(() => {
+        setRegisters(getInitialRegisters(selectedProcessor));
+        setCompiled([]);
+        setCurrentStep(0);
+        setOutput('');
+      }, [selectedProcessor]);
+
+      useEffect(() => {
+        if (isRunning && currentStep < compiled.length) {
+          const timer = setTimeout(() => {
+            const instruction = compiled[currentStep];
+            const newRegs = executeInstruction(instruction.instruction, registers);
+            setRegisters(newRegs);
+            setCurrentStep(prev => prev + 1);
+            
+            // Check if this is the last instruction (HALT, RET, BX LR)
+            if (currentStep === compiled.length - 1 || 
+                instruction.instruction.includes('HALT') || 
+                instruction.instruction.includes('RET') || 
+                instruction.instruction.includes('BX LR')) {
+              const resultReg = selectedProcessor.registers[0]; // First register typically holds return value
+              setOutput(`Program terminated. Return value: ${newRegs[resultReg]}`);
+              setIsRunning(false);
+            }
+          }, speed);
+          return () => clearTimeout(timer);
+        }
+      }, [isRunning, currentStep, compiled, speed, selectedProcessor, registers]);
+
+      // Generic instruction executor
+      const executeInstruction = (instruction, currentRegs) => {
+        const newRegs = { ...currentRegs };
+        const parts = instruction.split(/[\s,#]+/).filter(p => p);
+        const opcode = parts[0];
+
+        switch(opcode) {
+          case 'MOV':
+            // MOV dest, src or MOV dest, #value
+            const movDest = parts[1];
+            const movSrc = parts[2];
+            if (!isNaN(movSrc)) {
+              // Immediate value
+              newRegs[movDest] = parseInt(movSrc);
+            } else {
+              // Register to register
+              newRegs[movDest] = newRegs[movSrc] || 0;
+            }
+            break;
+
+          case 'ADD':
+            // ADD dest, src1, src2
+            const addDest = parts[1];
+            const addSrc1 = parts[2];
+            const addSrc2 = parts[3];
+            const val1 = newRegs[addSrc1] || 0;
+            const val2 = newRegs[addSrc2] || 0;
+            newRegs[addDest] = val1 + val2;
+            break;
+
+          case 'SUB':
+            // SUB dest, src1, src2
+            const subDest = parts[1];
+            const subSrc1 = parts[2];
+            const subSrc2 = parts[3];
+            newRegs[subDest] = (newRegs[subSrc1] || 0) - (newRegs[subSrc2] || 0);
+            break;
+
+          case 'MUL':
+            // MUL dest, src1, src2
+            const mulDest = parts[1];
+            const mulSrc1 = parts[2];
+            const mulSrc2 = parts[3];
+            newRegs[mulDest] = (newRegs[mulSrc1] || 0) * (newRegs[mulSrc2] || 0);
+            break;
+
+          case 'IMUL':
+            // IMUL dest, src (x86 style - dest = dest * src)
+            const imulDest = parts[1];
+            const imulSrc = parts[2];
+            newRegs[imulDest] = (newRegs[imulDest] || 0) * (newRegs[imulSrc] || 0);
+            break;
+
+          case 'AND':
+            // AND dest, src1, src2 (ARM) or AND dest, src (x86)
+            const andDest = parts[1];
+            if (parts[3]) {
+              // ARM style: AND dest, src1, src2
+              const andSrc1 = parts[2];
+              const andSrc2 = parts[3];
+              newRegs[andDest] = (newRegs[andSrc1] || 0) & (newRegs[andSrc2] || 0);
+            } else {
+              // x86 style: AND dest, src
+              const andSrc = parts[2];
+              newRegs[andDest] = (newRegs[andDest] || 0) & (newRegs[andSrc] || 0);
+            }
+            break;
+
+          case 'OR':
+          case 'ORR':
+            // OR/ORR dest, src1, src2 (ARM) or OR dest, src (x86)
+            const orDest = parts[1];
+            if (parts[3]) {
+              const orSrc1 = parts[2];
+              const orSrc2 = parts[3];
+              newRegs[orDest] = (newRegs[orSrc1] || 0) | (newRegs[orSrc2] || 0);
+            } else {
+              const orSrc = parts[2];
+              newRegs[orDest] = (newRegs[orDest] || 0) | (newRegs[orSrc] || 0);
+            }
+            break;
+
+          case 'XOR':
+          case 'EOR':
+            // XOR/EOR dest, src1, src2 (ARM) or XOR dest, src (x86)
+            const xorDest = parts[1];
+            if (parts[3]) {
+              const xorSrc1 = parts[2];
+              const xorSrc2 = parts[3];
+              newRegs[xorDest] = (newRegs[xorSrc1] || 0) ^ (newRegs[xorSrc2] || 0);
+            } else {
+              const xorSrc = parts[2];
+              newRegs[xorDest] = (newRegs[xorDest] || 0) ^ (newRegs[xorSrc] || 0);
+            }
+            break;
+
+          case 'LSL':
+          case 'SHL':
+            // Left shift: LSL/SHL dest, src, #amount
+            const lslDest = parts[1];
+            const lslSrc = parts[2];
+            const lslAmount = parseInt(parts[3]) || 0;
+            newRegs[lslDest] = (newRegs[lslSrc] || 0) << lslAmount;
+            break;
+
+          case 'LSR':
+          case 'SHR':
+            // Right shift: LSR/SHR dest, src, #amount
+            const lsrDest = parts[1];
+            const lsrSrc = parts[2];
+            const lsrAmount = parseInt(parts[3]) || 0;
+            newRegs[lsrDest] = (newRegs[lsrSrc] || 0) >>> lsrAmount; // Unsigned shift
+            break;
+
+          case 'SDIV':
+          case 'IDIV':
+            // Division: SDIV/IDIV dest, src1, src2 (ARM) or IDIV divisor (x86)
+            if (parts[3]) {
+              // ARM style
+              const divDest = parts[1];
+              const divSrc1 = parts[2];
+              const divSrc2 = parts[3];
+              const divisor = newRegs[divSrc2] || 1;
+              newRegs[divDest] = Math.floor((newRegs[divSrc1] || 0) / divisor);
+            } else {
+              // x86 style - RAX already set up, result goes to RAX
+              // This is handled by separate MOV instructions
+            }
+            break;
+
+          case 'CQO':
+            // Sign extend - x86 instruction, we'll skip simulation
+            break;
+
+          case 'NOT':
+            // Bitwise NOT
+            const notDest = parts[1];
+            const notSrc = parts[2] || parts[1];
+            newRegs[notDest] = ~(newRegs[notSrc] || 0);
+            break;
+
+          // HALT, RET, BX LR - do nothing, just return current state
+          case 'HALT':
+          case 'RET':
+          case 'BX':
+            break;
+
+          default:
+            // Unknown instruction, do nothing
+            break;
+        }
+
+        return newRegs;
+      };
+
+      const handleCompile = () => {
+        const assembly = selectedProcessor.compile(code);
+        setCompiled(assembly);
+        setCurrentStep(0);
+        setRegisters(getInitialRegisters(selectedProcessor));
+        setOutput('Compilation successful. Ready to execute.');
+      };
+
+      const handleRun = () => {
+        if (compiled.length === 0) handleCompile();
+        setIsRunning(true);
+      };
+
+      const handlePause = () => setIsRunning(false);
+
+      const handleStep = () => {
+        if (currentStep < compiled.length) {
+          const instruction = compiled[currentStep];
+          const newRegs = executeInstruction(instruction.instruction, registers);
+          setRegisters(newRegs);
+          setCurrentStep(prev => prev + 1);
+          
+          // Check if this is the last instruction
+          if (currentStep === compiled.length - 1 || 
+              instruction.instruction.includes('HALT') || 
+              instruction.instruction.includes('RET') || 
+              instruction.instruction.includes('BX LR')) {
+            const resultReg = selectedProcessor.registers[0];
+            setOutput(`Program terminated. Return value: ${newRegs[resultReg]}`);
+          }
+        }
+      };
+
+      const handleReset = () => {
+        setCurrentStep(0);
+        setIsRunning(false);
+        setRegisters(getInitialRegisters(selectedProcessor));
+        setMemory(Array(16).fill(0));
+        setOutput('');
+      };
+
+      return (
+        <div className="min-h-screen bg-[#0a0e27] text-[#e0e0e0]">
+          {/* Background */}
+          <div className="fixed inset-0 opacity-5 pointer-events-none">
+            <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="circuit" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <path d="M10 10h20v20h-20z M50 10h20v20h-20z M30 50h20v20h-20z M70 70h20v20h-20z" 
+                        stroke="#00ff88" strokeWidth="0.5" fill="none"/>
+                  <circle cx="20" cy="20" r="2" fill="#00ff88"/>
+                  <circle cx="60" cy="20" r="2" fill="#00ff88"/>
+                  <circle cx="40" cy="60" r="2" fill="#00ff88"/>
+                  <circle cx="80" cy="80" r="2" fill="#00ff88"/>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#circuit)"/>
+            </svg>
+          </div>
+
+          <div className="fixed inset-0 pointer-events-none opacity-10">
+            <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#00ff88] to-transparent animate-scan"/>
+          </div>
+
+          <div className="relative z-10 p-6">
+            {/* Header */}
+            <div className="mb-6 border-b-2 border-[#00ff88] pb-4">
+              <button 
+                onClick={() => onNavigate('home')}
+                className="flex items-center gap-2 text-[#00ff88] hover:text-[#00dd77] transition-all mb-4"
+              >
+                <ArrowLeft />
+                <span className="text-sm tracking-wider">BACK TO HOME</span>
+              </button>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#00ff88] to-[#00ccff] rounded-lg flex items-center justify-center" style={{boxShadow: '0 0 20px rgba(0,255,136,0.3)'}}>
+                    <Cpu size={28} />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold tracking-wider text-[#00ff88]" style={{textShadow: '0 0 10px rgba(0,255,136,0.5)'}}>
+                      PROCESSOR SIMULATOR
+                    </h1>
+                    <p className="text-xs text-[#00ccff] tracking-widest mt-1">HARDWARE VISUALIZATION PLATFORM v1.0</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 items-center text-xs">
+                  <div className="w-2 h-2 rounded-full bg-[#00ff88] animate-pulse" style={{boxShadow: '0 0 10px rgba(0,255,136,0.5)'}}/>
+                  <span className="text-[#00ff88]">SYSTEM ONLINE</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Processor Selector */}
+            <div className="mb-6 bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg p-4 backdrop-blur-sm">
+              <label className="block text-xs text-[#00ccff] mb-2 tracking-widest">SELECT PROCESSOR</label>
+              <select 
+                value={selectedProcessor.id}
+                onChange={(e) => setSelectedProcessor(PROCESSORS.find(p => p.id === e.target.value))}
+                className="w-full bg-[#0a0e27] border border-[#00ff88]/50 rounded px-4 py-3 text-[#00ff88] focus:outline-none focus:border-[#00ff88] transition-all"
+              >
+                {PROCESSORS.map(proc => (
+                  <option key={proc.id} value={proc.id}>{proc.name}</option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-[#888] italic">{selectedProcessor.description}</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column */}
+              <div className="space-y-6">
+                <div className="bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg overflow-hidden backdrop-blur-sm">
+                  <div className="bg-[#1a2347] px-4 py-2 border-b border-[#00ff88]/30 flex items-center gap-2">
+                    <Code />
+                    <span className="text-xs text-[#00ccff] tracking-widest">CODE EDITOR</span>
+                  </div>
+                  <textarea
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    className="w-full h-64 bg-[#0a0e27] p-4 text-sm text-[#e0e0e0] focus:outline-none resize-none"
+                    placeholder="Write your C/C++ code here..."
+                    spellCheck={false}
+                  />
+                </div>
+
+                <div className="bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg p-4 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Zap />
+                    <span className="text-xs text-[#00ccff] tracking-widest">EXECUTION CONTROL</span>
+                  </div>
+                  <div className="flex gap-2 mb-4">
+                    <button onClick={handleCompile} className="flex-1 bg-[#00ccff] hover:bg-[#00aadd] text-[#0a0e27] px-4 py-2 rounded font-bold text-sm transition-all">
+                      COMPILE
+                    </button>
+                    {isRunning ? (
+                      <button onClick={handlePause} className="bg-[#ff6b00] hover:bg-[#ff8533] text-white p-2 rounded transition-all">
+                        <Pause />
+                      </button>
+                    ) : (
+                      <button onClick={handleRun} className="bg-[#00ff88] hover:bg-[#00dd77] text-[#0a0e27] p-2 rounded transition-all">
+                        <Play />
+                      </button>
+                    )}
+                    <button onClick={handleStep} className="bg-[#1a2347] hover:bg-[#243157] text-[#00ff88] p-2 rounded border border-[#00ff88]/50 transition-all">
+                      <SkipForward />
+                    </button>
+                    <button onClick={handleReset} className="bg-[#1a2347] hover:bg-[#243157] text-[#00ff88] p-2 rounded border border-[#00ff88]/50 transition-all">
+                      <RotateCcw />
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#888] mb-2">EXECUTION SPEED: {speed}ms</label>
+                    <input type="range" min="100" max="2000" step="100" value={speed} onChange={(e) => setSpeed(Number(e.target.value))} />
+                  </div>
+                </div>
+
+                <div className="bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg overflow-hidden backdrop-blur-sm">
+                  <div className="bg-[#1a2347] px-4 py-2 border-b border-[#00ff88]/30 flex items-center gap-2">
+                    <Terminal />
+                    <span className="text-xs text-[#00ccff] tracking-widest">OUTPUT CONSOLE</span>
+                  </div>
+                  <div className="p-4 h-32 overflow-auto text-sm text-[#00ff88] bg-[#0a0e27]">
+                    {output || '> Waiting for execution...'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-6">
+                <div className="bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg overflow-hidden backdrop-blur-sm">
+                  <div className="bg-[#1a2347] px-4 py-2 border-b border-[#00ff88]/30">
+                    <span className="text-xs text-[#00ccff] tracking-widest">PROCESSOR REGISTERS ({selectedProcessor.registers.length})</span>
+                  </div>
+                  <div className="p-4 max-h-96 overflow-y-auto">
+                    <div className="grid grid-cols-2 gap-3">
+                      {Object.entries(registers).map(([reg, val]) => (
+                        <div key={reg} className="bg-[#0a0e27] border border-[#00ff88]/30 rounded p-3">
+                          <div className="text-xs text-[#888] mb-1">{reg}</div>
+                          <div className="text-2xl font-bold text-[#00ff88]">{val.toString().padStart(2, '0')}</div>
+                          <div className="text-xs text-[#00ccff] mt-1">0b{val.toString(2).padStart(8, '0')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg overflow-hidden backdrop-blur-sm">
+                  <div className="bg-[#1a2347] px-4 py-2 border-b border-[#00ff88]/30">
+                    <span className="text-xs text-[#00ccff] tracking-widest">INSTRUCTION EXECUTION</span>
+                  </div>
+                  <div className="p-4 max-h-64 overflow-auto">
+                    {compiled.length === 0 ? (
+                      <div className="text-center text-[#888] py-8 text-sm">Compile code to see instructions</div>
+                    ) : (
+                      compiled.map((inst, idx) => (
+                        <div 
+                          key={idx}
+                          className={`mb-2 p-3 rounded border transition-all ${
+                            idx === currentStep ? 'bg-[#00ff88]/10 border-[#00ff88]' :
+                            idx < currentStep ? 'bg-[#0a0e27] border-[#00ff88]/20 opacity-50' :
+                            'bg-[#0a0e27] border-[#00ff88]/10'
+                          }`}
+                          style={idx === currentStep ? {boxShadow: '0 0 15px rgba(0,255,136,0.3)'} : {}}
+                        >
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs text-[#00ccff]">{inst.addr}</span>
+                            <span className="text-xs text-[#888]">{inst.binary}</span>
+                          </div>
+                          <div className="text-sm text-[#e0e0e0]">{inst.instruction}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-[#151b3d]/50 border border-[#00ff88]/30 rounded-lg overflow-hidden backdrop-blur-sm">
+                  <div className="bg-[#1a2347] px-4 py-2 border-b border-[#00ff88]/30">
+                    <span className="text-xs text-[#00ccff] tracking-widest">MEMORY VIEW</span>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-8 gap-2">
+                      {memory.map((val, idx) => (
+                        <div key={idx} className="bg-[#0a0e27] border border-[#00ff88]/20 rounded p-2 text-center">
+                          <div className="text-xs text-[#888] mb-1">{idx.toString(16).toUpperCase().padStart(2, '0')}</div>
+                          <div className="text-sm text-[#e0e0e0]">{val.toString().padStart(2, '0')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Main App Component
+    function App() {
+      const [currentPage, setCurrentPage] = useState('home');
+
+      const renderPage = () => {
+        switch(currentPage) {
+          case 'home':
+            return <LandingPage onNavigate={setCurrentPage} />;
+          case 'simulator':
+            return <SimulatorPage onNavigate={setCurrentPage} />;
+          case 'add-processor':
+            return <AddProcessorPage onNavigate={setCurrentPage} />;
+          default:
+            return <LandingPage onNavigate={setCurrentPage} />;
+        }
+      };
+
+      return renderPage();
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
